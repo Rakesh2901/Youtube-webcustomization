@@ -1,0 +1,1128 @@
+/* ══════════════════════════════════════════════════════════════
+   APPLE VISION OS  ·  YouTube Theme  v3
+   Enhancer for YouTube  ·  Windows  ·  RTX 4050
+   ══════════════════════════════════════════════════════════════
+   Bugs fixed in v3:
+   [1] Tags / chips — alignment & display corrected
+   [2] Icons — yt-icon CSS vars restored
+   [3] Double highlight — YouTube native ripple disabled
+   [4] Search tooltip — implemented via JS hook
+   [5] Search bar blur on scroll — header alpha capped; blur on
+       the container wrapper, not on <input> (inputs can't blur)
+   ══════════════════════════════════════════════════════════════ */
+
+
+/* ┌──────────────────────────────────────────────────────────┐
+   │  § CONFIG  ·  Change these to tweak the entire theme     │
+   └──────────────────────────────────────────────────────────┘ */
+:root {
+
+  /* — Background voids — */
+  --ag-void:        #000000;       /* page base background        */
+  --ag-surface:     #0a0a10;       /* slightly lifted surface     */
+
+  /* — Glass layers (opacity steps 0 → 5 = lightest → strongest) — */
+  --ag-glass-0:     rgba(255,255,255,0.030);
+  --ag-glass-1:     rgba(255,255,255,0.055);
+  --ag-glass-2:     rgba(255,255,255,0.088);   /* ← default card/search */
+  --ag-glass-3:     rgba(255,255,255,0.130);   /* ← hover/active state   */
+  --ag-glass-4:     rgba(255,255,255,0.180);
+  --ag-glass-5:     rgba(255,255,255,0.240);
+
+  /* — Border hairlines — */
+  --ag-border-dim:    rgba(255,255,255,0.07);
+  --ag-border-soft:   rgba(255,255,255,0.12);
+  --ag-border-mid:    rgba(255,255,255,0.18);
+  --ag-border-bright: rgba(255,255,255,0.28);
+
+  /* — Accent colours — */
+  --ag-blue:   #4fc3f7;            /* primary accent (sky blue)   */
+  --ag-mint:   #64e6c8;            /* secondary accent (mint)     */
+  --ag-lav:    #b4a0ff;            /* tertiary accent (lavender)  */
+  --ag-rose:   #ff9eb5;            /* warm accent                 */
+
+  /* — Blur strengths (change these to lighten/deepen glass) — */
+  --ag-blur-xs:  blur(6px);
+  --ag-blur-sm:  blur(16px);
+  --ag-blur-md:  blur(28px);
+  --ag-blur-lg:  blur(44px);
+  --ag-blur-xl:  blur(64px);
+  --ag-blur-2xl: blur(88px);
+
+  /* — Header glass (kept ≤ 0.72 alpha so search bar stays glassy) — */
+  --ag-header-bg:      rgba(6, 6, 10, 0.65);    /* ← raise to darken header */
+  --ag-header-blur:    52px;                     /* ← header backdrop blur   */
+  --ag-header-sat:     200%;                     /* ← backdrop saturation    */
+
+  /* — Motion — */
+  --ag-ease-smooth: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --ag-ease-expo:   cubic-bezier(0.16, 1.00, 0.30, 1.00);
+  --ag-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1.00);
+  --ag-dur-1: 100ms;   /* instant  */
+  --ag-dur-2: 200ms;   /* fast     */
+  --ag-dur-3: 360ms;   /* mid      */
+  --ag-dur-4: 560ms;   /* slow     */
+
+  /* — Spatial shadow levels z0–z4 — */
+  --ag-sh-z0: 0 1px 2px rgba(0,0,0,0.40);
+  --ag-sh-z1: 0 4px 16px rgba(0,0,0,0.55), 0 1px 3px rgba(0,0,0,0.35);
+  --ag-sh-z2: 0 12px 40px rgba(0,0,0,0.65), 0 4px 12px rgba(0,0,0,0.45);
+  --ag-sh-z3: 0 24px 72px rgba(0,0,0,0.75), 0 8px 24px rgba(0,0,0,0.55);
+  --ag-sh-z4: 0 40px 100px rgba(0,0,0,0.88), 0 16px 40px rgba(0,0,0,0.60);
+  --ag-sh-glow: 0 0 60px rgba(79,195,247,0.10), 0 0 120px rgba(79,195,247,0.05);
+
+  /* — Border radius — */
+  --ag-r-sm:   10px;
+  --ag-r-md:   16px;
+  --ag-r-lg:   22px;
+  --ag-r-xl:   30px;
+  --ag-r-pill: 99px;
+
+  /* — Typography — */
+  --ag-font:      -apple-system, "SF Pro Display", "Helvetica Neue", system-ui, sans-serif;
+  --ag-font-mono: "SF Mono", ui-monospace, "Cascadia Code", monospace;
+
+  /* ── FIX [2]: YouTube icon colour tokens ─────────────────── *
+   * yt-icon reads these CSS custom props for SVG fill colour.  *
+   * Without them icons fall back to black and become invisible. */
+  --yt-icon-active-color:         rgba(255,255,255,0.90);
+  --yt-icon-inactive-color:       rgba(255,255,255,0.52);
+  --yt-icon-button-icon-active-color: rgba(255,255,255,0.90);
+
+  /* ── YouTube spec tokens — override brand colours ──────────── */
+  --yt-spec-base-background:         var(--ag-void);
+  --yt-spec-raised-background:       var(--ag-surface);
+  --yt-spec-menu-background:         rgba(12,12,20,0.92);
+  --yt-spec-brand-button-background: transparent; /* kills double active flash */
+  --yt-spec-text-primary:            rgba(255,255,255,0.90);
+  --yt-spec-text-secondary:          rgba(255,255,255,0.48);
+  --yt-spec-call-to-action:          var(--ag-blue);
+  --paper-ripple-opacity:            0;  /* disables paper-ripple globally */
+
+  /* — Iridescent border gradient (card hover ring) — */
+  --ag-irid: linear-gradient(
+    135deg,
+    rgba(255,255,255,0.22) 0%,
+    rgba(180,160,255,0.18) 25%,
+    rgba(100,230,200,0.14) 50%,
+    rgba(79,195,247,0.18)  75%,
+    rgba(255,255,255,0.20) 100%
+  );
+}
+
+
+/* ┌──────────────────────────────────────────────────────────┐
+   │  § 1. RESET & BASE                                       │
+   └──────────────────────────────────────────────────────────┘ */
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  scroll-behavior: smooth;
+  color-scheme: dark;
+}
+
+body,
+ytd-app {
+  background: var(--ag-void) !important;
+  font-family: var(--ag-font) !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── FIX [2]: Ensure SVG icons inherit colour everywhere ───── */
+yt-icon {
+  color: inherit !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+yt-icon svg,
+yt-icon svg path,
+yt-icon svg rect,
+yt-icon svg circle,
+yt-icon svg polygon {
+  fill: currentColor !important;
+}
+
+/* ── FIX [3]: Kill YouTube's native paper-ripple — we use our own ── */
+tp-yt-paper-ripple {
+  display: none !important;
+  pointer-events: none !important;
+}
+
+/* ── FIX [3]: Kill double focus/active highlight on thumbnails ───── */
+a#thumbnail,
+a#thumbnail:focus,
+a#thumbnail:focus-visible,
+a#thumbnail:active,
+a#thumbnail:hover {
+  outline: none !important;
+  box-shadow: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+}
+
+/* ── FIX [3]: Single clean focus ring — keyboard-nav only ────────── */
+*:focus         { outline: none !important; }
+*:focus-visible {
+  outline: 1.5px solid rgba(79,195,247,0.65) !important;
+  outline-offset: 3px !important;
+  border-radius: 6px !important;
+}
+
+
+/* ┌──────────────────────────────────────────────────────────┐
+   │  § 2. AMBIENT BACKGROUND                                 │
+   │  Grain texture + volumetric colour pools                 │
+   └──────────────────────────────────────────────────────────┘ */
+
+/* Noise grain — low opacity overlay */
+ytd-app::after {
+  content: "";
+  position: fixed; inset: 0;
+  z-index: 0; pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
+  mix-blend-mode: overlay;
+}
+
+/* Volumetric colour pools — ambient environment light */
+ytd-app::before {
+  content: "";
+  position: fixed; inset: 0;
+  z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 70% 50% at 15%  5%,  rgba(79,195,247,0.050) 0%, transparent 65%),
+    radial-gradient(ellipse 55% 45% at 88% 95%,  rgba(180,160,255,0.040) 0%, transparent 60%),
+    radial-gradient(ellipse 45% 35% at 55% 48%,  rgba(100,230,200,0.026) 0%, transparent 60%),
+    radial-gradient(ellipse 80% 70% at 50% 110%, rgba(0,0,0,1) 0%, transparent 50%);
+  /* Tweak animation speed here ↓ */
+  animation: agAmbient 24s ease-in-out infinite alternate;
+  will-change: opacity;
+  transform: translateZ(0);
+}
+
+@keyframes agAmbient {
+  0%   { opacity: 0.75; }
+  50%  { opacity: 1.00; }
+  100% { opacity: 0.85; }
+}
+
+
+/* ┌──────────────────────────────────────────────────────────┐
+   │  § 3. SCROLLBAR                                          │
+   └──────────────────────────────────────────────────────────┘ */
+::-webkit-scrollbar              { width: 5px; }
+::-webkit-scrollbar-track        { background: transparent; }
+::-webkit-scrollbar-thumb        {
+  background: rgba(255,255,255,0.10);
+  border-radius: var(--ag-r-pill);
+  transition: background var(--ag-dur-2);
+}
+::-webkit-scrollbar-thumb:hover  { background: rgba(255,255,255,0.22); }
+
+
+/* ┌──────────────────────────────────────────────────────────┐
+   │  § 4. HEADER / MASTHEAD                                  │
+   │  FIX [5]: Alpha capped at 0.72 — never goes opaque.     │
+   │  JS adds .ag-scrolled class; CSS handles transitions.   │
+   └──────────────────────────────────────────────────────────┘ */
+#masthead,
+ytd-masthead,
+#masthead-container {
+  /* ← Background alpha here. Keep ≤ 0.75 or glass breaks */
+  background: var(--ag-header-bg) !important;
+  backdrop-filter: blur(var(--ag-header-blur)) saturate(var(--ag-header-sat)) brightness(0.90) !important;
+  -webkit-backdrop-filter: blur(var(--ag-header-blur)) saturate(var(--ag-header-sat)) brightness(0.90) !important;
+  border-bottom: 0.5px solid var(--ag-border-dim) !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.04), var(--ag-sh-z1) !important;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 2000 !important;
+  transform: translateZ(0);
+  will-change: transform, backdrop-filter;
+  /* Transition is CSS-driven; JS only toggles a class */
+  transition:
+    background       var(--ag-dur-3) var(--ag-ease-smooth),
+    backdrop-filter  var(--ag-dur-3) var(--ag-ease-smooth),
+    box-shadow       var(--ag-dur-3) var(--ag-ease-smooth),
+    transform        0.38s var(--ag-ease-smooth) !important;
+}
+
+/* Scrolled state — JS adds this class */
+#masthead.ag-scrolled,
+ytd-masthead.ag-scrolled {
+  /* Max alpha 0.78 — still glassy, never solid black */
+  background: rgba(6, 6, 10, 0.78) !important;
+  backdrop-filter: blur(72px) saturate(240%) brightness(0.85) !important;
+  -webkit-backdrop-filter: blur(72px) saturate(240%) brightness(0.85) !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.06), var(--ag-sh-z2) !important;
+}
+
+/* Header hidden state — JS adds .ag-hidden */
+#masthead.ag-hidden,
+ytd-masthead.ag-hidden {
+  transform: translateY(-100%) !important;
+}
+
+/* ── FIX [2]: Logo icon visibility ─────────────────────────── */
+#logo-icon, ytd-logo { filter: brightness(1.1) !important; }
+
+
+/* ┌──────────────────────────────────────────────────────────┐
+   │  § 5. SEARCH BAR                                         │
+   │  FIX [5]: backdrop-filter on CONTAINER, not on <input>  │
+   │           Input elements can't render backdrop-filter    │
+   │           reliably — use parent wrapper instead.         │
+   │  FIX [4]: Tooltip hook — JS injects .ag-search-tooltip  │
+   └──────────────────────────────────────────────────────────┘ */
+
+/* Container gets the glass effect */
+ytd-searchbox,
+#search-form {
+  position: relative; /* tooltip anchor */
+}
+
+#search-form,
+ytd-searchbox > *:first-child,
+#center > #search-form {
+  backdrop-filter: var(--ag-blur-md) saturate(160%) !important;
+  -webkit-backdrop-filter: var(--ag-blur-md) saturate(160%) !important;
+  background: var(--ag-glass-2) !important;
+  border: 0.5px solid var(--ag-border-soft) !important;
+  border-radius: var(--ag-r-pill) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), var(--ag-sh-z0) !important;
+  transition:
+    background    var(--ag-dur-2) var(--ag-ease-smooth),
+    border-color  var(--ag-dur-2) var(--ag-ease-smooth),
+    box-shadow    var(--ag-dur-2) var(--ag-ease-smooth),
+    transform     var(--ag-dur-3) var(--ag-ease-spring) !important;
+}
+
+/* Focus ring on the container (not the input) */
+#search-form:focus-within,
+ytd-searchbox:focus-within > *:first-child {
+  background: var(--ag-glass-3) !important;
+  border-color: rgba(79,195,247,0.38) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.08),
+    0 0 0 3px rgba(79,195,247,0.12),
+    0 0 24px rgba(79,195,247,0.08) !important;
+}
+
+/* Input: transparent — inherits glass from parent */
+input#search,
+#search-input input,
+ytd-searchbox input {
+  background: transparent !important;   /* ← parent provides the glass */
+  border: none !important;              /* ← parent provides the border */
+  border-radius: var(--ag-r-pill) !important;
+  color: rgba(255,255,255,0.88) !important;
+  font-family: var(--ag-font) !important;
+  font-size: 15px !important;
+  font-weight: 300 !important;
+  letter-spacing: 0.01em !important;
+  padding: 10px 22px !important;
+  caret-color: var(--ag-blue) !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+input#search::placeholder,
+ytd-searchbox input::placeholder {
+  color: rgba(255,255,255,0.35) !important;
+}
+
+/* Search button */
+#search-icon-legacy,
+button#search-button {
+  background: transparent !important;
+  border: none !important;
+  border-left: 0.5px solid var(--ag-border-dim) !important;
+  color: rgba(255,255,255,0.50) !important;
+  transition: color var(--ag-dur-2) var(--ag-ease-smooth) !important;
+}
+#search-icon-legacy:hover,
+button#search-button:hover {
+  color: rgba(255,255,255,0.90) !important;
+}
+
+/* Tooltip — injected by JS, anchored to search form ─────────
+   Position: below the search bar, centered                   */
+.ag-search-tooltip {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%) translateY(-6px);
+  background: rgba(12,12,22,0.90);
+  backdrop-filter: var(--ag-blur-lg) !important;
+  -webkit-backdrop-filter: var(--ag-blur-lg) !important;
+  border: 0.5px solid var(--ag-border-mid);
+  border-radius: var(--ag-r-md);
+  color: rgba(255,255,255,0.78);
+  font-family: var(--ag-font);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  padding: 8px 14px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 3000;
+  opacity: 0;
+  box-shadow: var(--ag-sh-z2);
+  transition:
+    opacity   var(--ag-dur-2) var(--ag-ease-smooth),
+    transform var(--ag-dur-2) var(--ag-ease-expo);
+}
+
+.ag-search-tooltip.ag-visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.ag-search-tooltip kbd {
+  display: inline-block;
+  background: var(--ag-glass-3);
+  border: 0.5px solid var(--ag-border-mid);
+  border-radius: 5px;
+  padding: 1px 5px;
+  font-family: var(--ag-font-mono);
+  font-size: 11px;
+  color: var(--ag-blue);
+  margin: 0 2px;
+}
+
+/* Tooltip arrow */
+.ag-search-tooltip::before {
+  content: "";
+  position: absolute;
+  top: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top: none;
+  border-bottom-color: var(--ag-border-mid);
+}
+
+
+/* ┌──────────────────────────────────────────────────────────┐
+   │  § 6. NAVIGATION SIDEBAR                                 │
+   └──────────────────────────────────────────────────────────┘ */
+#guide-content,
+ytd-guide-renderer,
+tp-yt-app-drawer {
+  background: transparent !important;
+}
+
+ytd-guide-entry-renderer,
+ytd-mini-guide-entry-renderer {
+  border-radius: var(--ag-r-md) !important;
+  margin: 2px 10px !important;
+  transition:
+    background  var(--ag-dur-2) var(--ag-ease-smooth),
+    transform   var(--ag-dur-2) var(--ag-ease-spring) !important;
+}
+
+ytd-guide-entry-renderer:hover {
+  background: var(--ag-glass-2) !important;
+  transform: translateX(4px) !important;
+}
+
+ytd-guide-entry-renderer[aria-selected="true"],
+ytd-guide-entry-renderer.iron-selected {
+  background: var(--ag-glass-3) !important;
+  border: 0.5px solid var(--ag-border-soft) !important;
+  box-shadow: var(--ag-sh-z1), inset 0 1px 0 rgba(255,255,255,0.06) !important;
+}
+
+/* Icon scale on sidebar item hover */
+ytd-guide-entry-renderer yt-icon {
+  transition: transform var(--ag-dur-2) var(--ag-ease-spring) !important;
+}
+ytd-guide-entry-renderer:hover yt-icon {
+  transform: scale(1.15) !important;
+}
+
+/* Sidebar text */
+ytd-guide-entry-renderer #endpoint,
+ytd-guide-entry-renderer #title {
+  color: rgba(255,255,255,0.72) !important;
+  font-family: var(--ag-font) !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+}
+
+ytd-guide-entry-renderer[aria-selected="true"] #title {
+  color: rgba(255,255,255,0.95) !important;
+  font-weight: 500 !important;
+}
+
+
+/* ┌──────────────────────────────────────────────────────────┐
+   │  § 7. VIDEO CARDS — Spatial floating panels              │
+   └──────────────────────────────────────────────────────────┘ */
+ytd-rich-item-renderer,
+ytd-video-renderer,
+ytd-grid-video-renderer {
+  background: transparent !important;
+  border-radius: var(--ag-r-xl) !important;
+  overflow: visible !important;     /* allow glow to bleed outside bounds */
+  transition:
+    transform  var(--ag-dur-4) var(--ag-ease-expo),
+    box-shadow var(--ag-dur-4) var(--ag-ease-expo) !important;
+  will-change: transform, box-shadow;
+  transform: translateZ(0);
+  position: relative;
+}
+
+/* Iridescent ring — only visible on hover */
+ytd-rich-item-renderer::after,
+ytd-video-renderer::after,
+ytd-grid-video-renderer::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: calc(var(--ag-r-xl) + 1px);
+  padding: 1px;
+  background: var(--ag-irid);
+  /* mask trick: only show the 1px border, not the fill */
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: destination-out;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity var(--ag-dur-4) var(--ag-ease-expo);
+  pointer-events: none;
+  z-index: -1;
+}
+
+ytd-rich-item-renderer:hover::after,
+ytd-video-renderer:hover::after,
+ytd-grid-video-renderer:hover::after {
+  opacity: 1;
+}
+
+ytd-rich-item-renderer:hover,
+ytd-video-renderer:hover,
+ytd-grid-video-renderer:hover {
+  transform: translateY(-8px) scale(1.018) translateZ(0) !important;
+  box-shadow: var(--ag-sh-z3), var(--ag-sh-glow) !important;
+  z-index: 10 !important;
+}
+
+/* Video title */
+#video-title,
+#video-title-link,
+h3 a#video-title {
+  color: rgba(255,255,255,0.90) !important;
+  font-family: var(--ag-font) !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.025em !important;
+  line-height: 1.35 !important;
+  transition: color var(--ag-dur-2) !important;
+}
+ytd-rich-item-renderer:hover #video-title { color: #fff !important; }
+
+/* Meta info (view count, date) */
+#metadata-line span,
+ytd-video-meta-block span {
+  color: rgba(255,255,255,0.33) !important;
+  font-size: 12px !important;
+  font-weight: 300 !important;
+}
+
+/* Channel name */
+#channel-name a,
+ytd-channel-name a {
+  color: rgba(255,255,255,0.46) !important;
+  font-weight: 400 !important;
+  transition: color var(--ag-dur-2) !important;
+}
+#channel-name a:hover { color: var(--ag-blue) !important; }
+
+
+/* ┌──────────────────────────────────────────────────────────┐
+   │  § 8. THUMBNAILS                                         │
+   └──────────────────────────────────────────────────────────┘ */
+ytd-thumbnail,
+#thumbnail,
+a#thumbnail {
+  border-radius: var(--ag-r-lg) !important;
+  overflow: hidden !important;
+  display: block !important;
+}
+
+ytd-thumbnail img,
+#thumbnail img {
+  border-radius: var(--ag-r-lg) !important;
+  transition:
+    transform     var(--ag-dur-4) var(--ag-ease-expo),
+    filter        var(--ag-dur-4) var(--ag-ease-smooth),
+    border-radius var(--ag-dur-2) var(--ag-ease-smooth) !important;
+  will-change: transform, filter;
+  transform: translateZ(0);
+}
+
+ytd-rich-item-renderer:hover ytd-thumbnail img,
+ytd-video-renderer:hover ytd-thumbnail img,
+ytd-grid-video-renderer:hover ytd-thumbnail img {
+  transform: scale(1.07) translateZ(0) !important;
+  filter: brightness(1.06) saturate(1.12) contrast(1.02) !important;
+  border-radius: var(--ag-r-md) !important;
+}
+
+/* Duration badge */
+ytd-thumbnail-overlay-time-status-renderer {
+  background: rgba(0,0,0,0.70) !important;
+  backdrop-filter: var(--ag-blur-xs) !important;
+  -webkit-backdrop-filter: var(--ag-blur-xs) !important;
+  border-radius: 7px !important;
+  font-family: var(--ag-font-mono) !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.05em !important;
+  border: 0.5px solid rgba(255,255,255,0.10) !important;
+  color: rgba(255,255,255,0.92) !important;
+  padding: 2px 6px !important;
+}
+
+
+/* ┌──────────────────────────────────────────────────────────┐
+   │  § 9. FILTER CHIPS / TAGS                                │
+   │  FIX [1]: Added display:inline-flex + height + padding  │
+   │           Previously had clipping and misalignment       │
+   └──────────────────────────────────────────────────────────┘ */
+
+/* Chip cloud wrapper — prevent row overflow clipping */
+yt-chip-cloud-renderer,
+#chips-wrapper {
+  overflow: visible !important;
+}
+
+/* Each chip — correct layout */
+yt-chip-cloud-chip-renderer {
+  display: inline-flex !important;         /* ← was missing; caused broken look */
+  align-items: center !important;          /* ← vertical centre the label       */
+  justify-content: center !important;
+  height: 32px !important;                 /* ← explicit height prevents chop   */
+  padding: 0 !important;                   /* ← padding lives on inner container */
+  overflow: visible !important;            /* ← do not clip pill border-radius   */
+  white-space: nowrap !important;
+  background: var(--ag-glass-1) !important;
+  backdrop-filter: var(--ag-blur-xs) !important;
+  -webkit-backdrop-filter: var(--ag-blur-xs) !important;
+  border: 0.5px solid var(--ag-border-dim) !important;
+  border-radius: var(--ag-r-pill) !important;
+  color: rgba(255,255,255,0.60) !important;
+  font-family: var(--ag-font) !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  letter-spacing: -0.01em !important;
+  cursor: pointer !important;
+  transition:
+    background   var(--ag-dur-2) var(--ag-ease-smooth),
+    border-color var(--ag-dur-2) var(--ag-ease-smooth),
+    color        var(--ag-dur-2) var(--ag-ease-smooth),
+    transform    var(--ag-dur-2) var(--ag-ease-spring),
+    box-shadow   var(--ag-dur-2) var(--ag-ease-smooth) !important;
+}
+
+/* Inner chip container (YouTube wraps text in a div/span) */
+yt-chip-cloud-chip-renderer > *,
+yt-chip-cloud-chip-renderer #chip-container,
+yt-chip-cloud-chip-renderer .yt-chip-cloud-chip-renderer {
+  display: inline-flex !important;
+  align-items: center !important;
+  height: 100% !important;
+  padding: 0 14px !important;   /* ← horizontal breathing room */
+  border-radius: inherit !important;
+}
+
+/* Chip text label */
+yt-chip-cloud-chip-renderer yt-formatted-string,
+yt-chip-cloud-chip-renderer span {
+  color: inherit !important;
+  font-size: 13px !important;
+  font-weight: inherit !important;
+  line-height: 1 !important;     /* ← prevent text from pushing height */
+  white-space: nowrap !important;
+}
+
+/* Hover */
+yt-chip-cloud-chip-renderer:hover {
+  background: var(--ag-glass-3) !important;
+  border-color: var(--ag-border-mid) !important;
+  color: rgba(255,255,255,0.92) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: var(--ag-sh-z1) !important;
+}
+
+/* Selected / active */
+yt-chip-cloud-chip-renderer[chip-style="STYLE_DEFAULT"][selected],
+yt-chip-cloud-chip-renderer[selected] {
+  background: rgba(255,255,255,0.90) !important;
+  border-color: rgba(255,255,255,0.55) !important;
+  color: #0a0a12 !important;
+  font-weight: 600 !important;
+  box-shadow: 0 2px 14px rgba(255,255,255,0.16) !important;
+  transform: none !important;
+}
+
+
+/* ┌──────────────────────────────────────────────────────────┐
+   │  § 10. BUTTONS                                           │
+   │  FIX [3]: Single highlight — native ripple disabled     │
+   │           via --paper-ripple-opacity:0 in :root          │
+   └──────────────────────────────────────────────────────────┘ */
+
+/* Subscribe button */
+ytd-subscribe-button-renderer tp-yt-paper-button,
+ytd-subscribe-button-renderer yt-button-shape button {
+  background: rgba(255,255,255,0.88) !important;
+  color: #0a0a12 !important;
+  border-radius: var(--ag-r-pill) !important;
+  font-family: var(--ag-font) !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  letter-spacing: -0.01em !important;
+  border: none !important;
+  padding: 8px 18px !important;
+  box-shadow: 0 2px 12px rgba(255,255,255,0.12) !important;
+  transition:
+    background  var(--ag-dur-2) var(--ag-ease-smooth),
+    transform   var(--ag-dur-2) var(--ag-ease-spring),
+    box-shadow  var(--ag-dur-2) var(--ag-ease-smooth) !important;
+}
+ytd-subscribe-button-renderer tp-yt-paper-button:hover,
+ytd-subscribe-button-renderer yt-button-shape button:hover {
+  background: #fff !important;
+  transform: scale(1.03) !important;
+  box-shadow: 0 4px 20px rgba(255,255,255,0.22) !important;
+}
+ytd-subscribe-button-renderer tp-yt-paper-button:active,
+ytd-subscribe-button-renderer yt-button-shape button:active {
+  transform: scale(0.97) !important;
+}
+
+/* Subscribed state */
+ytd-subscribe-button-renderer[subscribed] tp-yt-paper-button,
+ytd-subscribe-button-renderer[subscribed] yt-button-shape button {
+  background: var(--ag-glass-2) !important;
+  color: rgba(255,255,255,0.58) !important;
+  border: 0.5px solid var(--ag-border-dim) !important;
+  box-shadow: none !important;
+}
+
+/* Generic action buttons (like, share, clip etc.) */
+ytd-button-renderer tp-yt-paper-button,
+yt-button-shape button,
+ytd-toggle-button-renderer tp-yt-paper-button {
+  background: var(--ag-glass-1) !important;
+  backdrop-filter: var(--ag-blur-xs) !important;
+  -webkit-backdrop-filter: var(--ag-blur-xs) !important;
+  border: 0.5px solid var(--ag-border-dim) !important;
+  border-radius: var(--ag-r-pill) !important;
+  color: rgba(255,255,255,0.72) !important;
+  font-family: var(--ag-font) !important;
+  font-weight: 400 !important;
+  transition:
+    background   var(--ag-dur-2) var(--ag-ease-smooth),
+    border-color var(--ag-dur-2) var(--ag-ease-smooth),
+    color        var(--ag-dur-2) var(--ag-ease-smooth),
+    transform    var(--ag-dur-2) var(--ag-ease-spring) !important;
+}
+ytd-button-renderer tp-yt-paper-button:hover,
+yt-button-shape button:hover {
+  background: var(--ag-glass-3) !important;
+  border-color: var(--ag-border-mid) !important;
+  color: rgba(255,255,255,0.95) !important;
+  transform: translateY(-1px) !important;
+}
+ytd-button-renderer tp-yt-paper-button:active,
+yt-button-shape button:active {
+  transform: scale(0.96) !important;
+  transition-duration: 60ms !important;
+}
+
+/* Like toggled / active state */
+ytd-toggle-button-renderer[is-toggled] tp-yt-paper-button {
+  background: rgba(79,195,247,0.14) !important;
+  border-color: rgba(79,195,247,0.35) !important;
+  color: var(--ag-blue) !important;
+}
+
+
+/* ┌──────────────────────────────────────────────────────────┐
+   │  § 11. VIDEO PLAYER                                      │
+   │  Player blur gradient goes full-bleed (no side clipping) │
+   └──────────────────────────────────────────────────────────┘ */
+#movie_player,
+.html5-video-player {
+  border-radius: var(--ag-r-xl) !important;
+  overflow: hidden !important;
+  box-shadow: var(--ag-sh-z4), 0 0 0 0.5px rgba(255,255,255,0.05) !important;
+}
+
+/* FIX: Full-bleed gradient — pin to 0/0 and 100% width */
+.html5-video-player .ytp-gradient-bottom {
+  left: 0 !important; right: 0 !important;
+  width: 100% !important; bottom: 0 !important;
+  height: 40% !important;
+  border-radius: 0 0 var(--ag-r-xl) var(--ag-r-xl) !important;
+  background: linear-gradient(
+    to top,
+    rgba(0,0,0,0.85) 0%,
+    rgba(0,0,0,0.58) 30%,
+    rgba(0,0,0,0.22) 65%,
+    transparent 100%
+  ) !important;
+}
+
+/* Chrome-bottom: full width, padded so buttons respect rounded corners */
+.html5-video-player .ytp-chrome-bottom {
+  left: 0 !important; right: 0 !important;
+  width: 100% !important; bottom: 0 !important;
+  padding: 0 14px 10px !important;
+  /* Hover lift animation */
+  transform: translateY(5px);
+  opacity: 0.90;
+  transition:
+    transform var(--ag-dur-3) var(--ag-ease-smooth),
+    opacity   var(--ag-dur-3) var(--ag-ease-smooth) !important;
+}
+.html5-video-player:hover .ytp-chrome-bottom,
+.html5-video-player:focus-within .ytp-chrome-bottom {
+  transform: translateY(0) !important;
+  opacity: 1 !important;
+}
+
+/* Progress bar */
+.html5-video-player .ytp-progress-bar-container {
+  left: 0 !important; right: 0 !important;
+  width: 100% !important;
+}
+
+.ytp-play-progress {
+  background: linear-gradient(90deg, var(--ag-blue), var(--ag-mint)) !important;
+  box-shadow: 0 0 10px rgba(79,195,247,0.55) !important;
+  border-radius: var(--ag-r-pill) !important;
+}
+.ytp-load-progress {
+  background: rgba(255,255,255,0.14) !important;
+  border-radius: var(--ag-r-pill) !important;
+}
+.ytp-scrubber-button {
+  background: #fff !important;
+  box-shadow: 0 0 10px rgba(79,195,247,0.50), 0 2px 4px rgba(0,0,0,0.4) !important;
+  transition: transform var(--ag-dur-2) var(--ag-ease-spring) !important;
+}
+.ytp-progress-bar:hover .ytp-scrubber-button { transform: scale(1.3) !important; }
+
+/* Player control buttons */
+.ytp-button {
+  color: rgba(255,255,255,0.82) !important;
+  transition: color var(--ag-dur-1), transform var(--ag-dur-2) var(--ag-ease-spring) !important;
+}
+.ytp-button:hover  { color: #fff !important; transform: scale(1.14) !important; }
+.ytp-button:active { transform: scale(0.90) !important; }
+
+.ytp-volume-slider-handle { background: #fff !important; }
+
+
+/* ┌──────────────────────────────────────────────────────────┐
+   │  § 12. COMMENTS                                          │
+   └──────────────────────────────────────────────────────────┘ */
+ytd-comment-thread-renderer {
+  background: var(--ag-glass-0) !important;
+  border-radius: var(--ag-r-lg) !important;
+  padding: 16px !important;
+  margin-bottom: 8px !important;
+  border: 0.5px solid var(--ag-border-dim) !important;
+  transition: background var(--ag-dur-2), border-color var(--ag-dur-2) !important;
+}
+ytd-comment-thread-renderer:hover {
+  background: var(--ag-glass-1) !important;
+  border-color: var(--ag-border-soft) !important;
+}
+#author-text span {
+  color: rgba(255,255,255,0.72) !important;
+  font-weight: 500 !important;
+}
+#author-text:hover span { color: var(--ag-blue) !important; }
+#content-text {
+  color: rgba(255,255,255,0.70) !important;
+  line-height: 1.65 !important;
+  font-size: 14px !important;
+  font-weight: 300 !important;
+}
+#contenteditable-root,
+#simple-box-outer {
+  border-bottom: 0.5px solid var(--ag-border-dim) !important;
+  transition: border-color var(--ag-dur-2) !important;
+}
+#contenteditable-root:focus,
+#simple-box-outer:focus-within {
+  border-bottom-color: var(--ag-blue) !important;
+}
+
+
+/* ┌──────────────────────────────────────────────────────────┐
+   │  § 13. SIDEBAR RELATED VIDEOS                            │
+   └──────────────────────────────────────────────────────────┘ */
+#secondary ytd-compact-video-renderer {
+  background: var(--ag-glass-0) !important;
+  border-radius: var(--ag-r-md) !important;
+  padding: 8px !important;
+  margin-bottom: 6px !important;
+  border: 0.5px solid transparent !important;
+  transition:
+    background   var(--ag-dur-2) var(--ag-ease-smooth),
+    border-color var(--ag-dur-2) var(--ag-ease-smooth),
+    transform    var(--ag-dur-2) var(--ag-ease-spring) !important;
+}
+#secondary ytd-compact-video-renderer:hover {
+  background: var(--ag-glass-2) !important;
+  border-color: var(--ag-border-dim) !important;
+  transform: translateX(-4px) !important;
+}
+
+
+/* ┌──────────────────────────────────────────────────────────┐
+   │  § 14. MENUS & POPUPS                                    │
+   └──────────────────────────────────────────────────────────┘ */
+ytd-popup-container paper-dialog,
+ytd-menu-popup-renderer,
+tp-yt-paper-listbox {
+  background: rgba(12,12,20,0.88) !important;
+  backdrop-filter: var(--ag-blur-2xl) saturate(200%) brightness(0.88) !important;
+  -webkit-backdrop-filter: var(--ag-blur-2xl) saturate(200%) brightness(0.88) !important;
+  border: 0.5px solid var(--ag-border-mid) !important;
+  border-radius: var(--ag-r-lg) !important;
+  box-shadow: var(--ag-sh-z4), inset 0 1px 0 rgba(255,255,255,0.05) !important;
+  overflow: hidden !important;
+}
+ytd-menu-service-item-renderer,
+tp-yt-paper-item {
+  color: rgba(255,255,255,0.72) !important;
+  font-family: var(--ag-font) !important;
+  font-size: 13.5px !important;
+  font-weight: 300 !important;
+  border-radius: var(--ag-r-sm) !important;
+  margin: 2px 6px !important;
+  transition: background var(--ag-dur-1), color var(--ag-dur-1) !important;
+}
+ytd-menu-service-item-renderer:hover,
+tp-yt-paper-item:hover {
+  background: var(--ag-glass-2) !important;
+  color: #fff !important;
+}
+
+
+/* ┌──────────────────────────────────────────────────────────┐
+   │  § 15. AVATARS & ICON BUTTONS                            │
+   └──────────────────────────────────────────────────────────┘ */
+yt-img-shadow img,
+#avatar img,
+#author-thumbnail img {
+  border-radius: 50% !important;
+  border: 0.5px solid var(--ag-border-dim) !important;
+  transition:
+    border-color var(--ag-dur-2),
+    transform    var(--ag-dur-2) var(--ag-ease-spring),
+    box-shadow   var(--ag-dur-2) !important;
+}
+yt-img-shadow:hover img,
+#avatar:hover img,
+#author-thumbnail:hover img {
+  border-color: rgba(79,195,247,0.45) !important;
+  transform: scale(1.06) !important;
+  box-shadow: 0 0 20px rgba(79,195,247,0.22) !important;
+}
+
+/* Header icon buttons (search, mic, upload, bell, avatar) */
+#buttons ytd-button-renderer button,
+#notification-button button,
+ytd-notification-topbar-button-renderer button,
+#masthead-container button {
+  border-radius: 50% !important;
+  color: rgba(255,255,255,0.72) !important;
+  transition:
+    background  var(--ag-dur-2) var(--ag-ease-smooth),
+    color       var(--ag-dur-2) var(--ag-ease-smooth),
+    transform   var(--ag-dur-2) var(--ag-ease-spring) !important;
+}
+#notification-button button:hover { transform: rotate(14deg) scale(1.10) !important; }
+
+
+/* ┌──────────────────────────────────────────────────────────┐
+   │  § 16. SHORTS / REELS                                    │
+   └──────────────────────────────────────────────────────────┘ */
+ytd-reel-item-renderer {
+  border-radius: var(--ag-r-lg) !important;
+  overflow: hidden !important;
+  transition:
+    transform  var(--ag-dur-4) var(--ag-ease-expo),
+    box-shadow var(--ag-dur-4) var(--ag-ease-expo) !important;
+}
+ytd-reel-item-renderer:hover {
+  transform: translateY(-10px) scale(1.025) !important;
+  box-shadow: var(--ag-sh-z3) !important;
+}
+ytd-reel-item-renderer img {
+  transition: filter var(--ag-dur-4) !important;
+}
+ytd-reel-item-renderer:hover img {
+  filter: brightness(1.08) saturate(1.15) !important;
+}
+
+
+/* ┌──────────────────────────────────────────────────────────┐
+   │  § 17. MINI PLAYER                                       │
+   └──────────────────────────────────────────────────────────┘ */
+ytd-miniplayer,
+#miniplayer {
+  background: var(--ag-glass-2) !important;
+  backdrop-filter: var(--ag-blur-lg) !important;
+  -webkit-backdrop-filter: var(--ag-blur-lg) !important;
+  border: 0.5px solid var(--ag-border-mid) !important;
+  border-radius: var(--ag-r-xl) !important;
+  box-shadow: var(--ag-sh-z4) !important;
+  overflow: hidden !important;
+}
+
+
+/* ┌──────────────────────────────────────────────────────────┐
+   │  § 18. JS-INJECTED ELEMENTS                              │
+   │  These are created at runtime by youtube-apple-glass.js  │
+   └──────────────────────────────────────────────────────────┘ */
+
+/* — Cursor dot (instant) — */
+#ag-cursor-dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.95);
+  position: fixed; pointer-events: none; z-index: 999999;
+  transform: translate(-50%,-50%);
+  mix-blend-mode: difference;
+  will-change: left, top;
+  /* Only size transitions — position is set directly */
+  transition: width 120ms var(--ag-ease-spring), height 120ms var(--ag-ease-spring);
+}
+
+/* — Cursor halo (soft lag) — */
+#ag-cursor-halo {
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  border: 0.5px solid rgba(79,195,247,0.34);
+  background: radial-gradient(circle, rgba(79,195,247,0.05) 0%, transparent 70%);
+  position: fixed; pointer-events: none; z-index: 999998;
+  transform: translate(-50%,-50%);
+  will-change: left, top;
+  transition:
+    width        180ms var(--ag-ease-spring),
+    height       180ms var(--ag-ease-spring),
+    border-color 180ms,
+    background   180ms;
+}
+#ag-cursor-halo.ag-big {
+  width: 52px; height: 52px;
+  border-color: rgba(79,195,247,0.20);
+  background: radial-gradient(circle, rgba(79,195,247,0.08) 0%, transparent 65%);
+}
+#ag-cursor-halo.ag-click {
+  width: 26px; height: 26px;
+  border-color: rgba(79,195,247,0.65);
+}
+
+/* — Custom ripple — */
+.ag-ripple {
+  position: absolute; border-radius: 50%;
+  background: rgba(255,255,255,0.16);
+  transform: scale(0); opacity: 1;
+  animation: agRipple 0.5s var(--ag-ease-expo) forwards;
+  pointer-events: none; z-index: 9999;
+}
+@keyframes agRipple {
+  to { transform: scale(4); opacity: 0; }
+}
+
+/* — Scroll reveal — */
+.ag-reveal { opacity: 0; transform: translateY(22px) scale(0.978); }
+.ag-reveal.ag-visible {
+  opacity: 1; transform: translateY(0) scale(1);
+  transition: opacity 0.5s var(--ag-ease-expo), transform 0.5s var(--ag-ease-expo);
+}
+
+/* — Toast notification — */
+.ag-toast {
+  position: fixed; bottom: 36px; left: 50%;
+  transform: translateX(-50%) translateY(56px);
+  background: rgba(12,12,22,0.90);
+  backdrop-filter: var(--ag-blur-lg) !important;
+  -webkit-backdrop-filter: var(--ag-blur-lg) !important;
+  border: 0.5px solid var(--ag-border-mid);
+  border-radius: var(--ag-r-pill);
+  color: rgba(255,255,255,0.82);
+  font-family: var(--ag-font); font-size: 13px; font-weight: 400;
+  letter-spacing: -0.01em;
+  padding: 10px 22px; z-index: 99998; opacity: 0;
+  box-shadow: var(--ag-sh-z3);
+  transition: transform 0.45s var(--ag-ease-expo), opacity 0.35s var(--ag-ease-smooth);
+  pointer-events: none;
+}
+.ag-toast.ag-toast-show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+/* — Particle burst animation — */
+@keyframes agBurst {
+  0%   { opacity:1; transform:translate(-50%,-50%) scale(0.5); }
+  65%  { opacity:1; transform:translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(1.2); }
+  100% { opacity:0; transform:translate(calc(-50% + var(--tx)*1.5), calc(-50% + var(--ty)*1.5)) scale(0.4); }
+}
+
+
+/* ┌──────────────────────────────────────────────────────────┐
+   │  § 19. UTILITY & PERFORMANCE                             │
+   └──────────────────────────────────────────────────────────┘ */
+
+/* GPU promotion — paint these on their own compositor layers */
+ytd-rich-item-renderer,
+ytd-video-renderer,
+ytd-thumbnail,
+#movie_player,
+ytd-masthead,
+ytd-guide-entry-renderer,
+ytd-reel-item-renderer {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* Global links */
+a, a:visited {
+  color: rgba(255,255,255,0.60) !important;
+  text-decoration: none !important;
+  transition: color var(--ag-dur-2) !important;
+}
+a:hover { color: rgba(255,255,255,0.95) !important; }
+
+/* Page reveal animation */
+@keyframes agPageReveal {
+  from { opacity:0; transform:translateY(10px) scale(0.994); }
+  to   { opacity:1; transform:translateY(0)    scale(1); }
+}
+ytd-browse, ytd-watch, ytd-search {
+  animation: agPageReveal 0.5s var(--ag-ease-expo) both;
+}
+
+/* Keyboard max-blur mode — toggled by pressing B */
+.ag-max-blur #masthead,
+.ag-max-blur ytd-masthead {
+  backdrop-filter: blur(80px) saturate(240%) !important;
+  -webkit-backdrop-filter: blur(80px) saturate(240%) !important;
+}
+
+/* Reduce motion — respects system preference */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
