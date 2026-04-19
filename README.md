@@ -38,5 +38,3 @@ Built on top of **Enhancer for YouTube**, this project keeps everything lightwei
   - No edge glow
   - Consistent icon size
 - 🧩 Modular and easy to customize
-
----
